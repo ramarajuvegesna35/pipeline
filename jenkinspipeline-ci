@@ -1,0 +1,34 @@
+pipeline {
+    agent any
+    tools {
+        maven 'maven' // Ensure 'maven' is the correct label for your Maven installation in Jenkins
+    }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git url: 'your-git-repo-url', credentialsId: 'your-credentials-id', branch: 'your-branch-name'
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage('Build and SonarQube Analysis') {
+            steps {
+                sh 'mvn clean package'
+                stash name: 'spc', includes: '**/target/spring-petclinic-3.2.0-SNAPSHOT.jar'
+                withSonarQubeEnv('SONAR_CLOUD') { // Reference the SonarQube environment properly
+                    sh 'mvn clean verify sonar:sonar -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=jenkinsdec23 -Dsonar.projectKey=jenkinsdec23_test'
+                }
+            }
+        }
+        stage('Build Docker Image') {
+            agent { label 'DOCKER' } // Assumes there's a Jenkins agent with Docker capabilities
+            steps {
+                unstash name: 'spc'
+                sh 'docker build -t shaikkhajaibrahim/spc:dev-$BUILD_ID .' // Removed 'image' to match standard Docker command
+            }
+        }
+    }
+}
